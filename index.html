@@ -526,21 +526,21 @@
                     spot: {
                         labels: sLabels,
                         datasets: [
-                            { label: 'Price', data: priceData, borderColor: params.type === 'call' ? '#10B981' : '#EF4444', borderWidth: 3, fill: false, pointRadius: 0 },
-                            { label: 'Payoff', data: payoffData, borderColor: '#ccc', borderDash: [5, 5], borderWidth: 2, fill: false, pointRadius: 0 }
+                            { label: 'Цена', data: priceData, borderColor: params.type === 'call' ? '#10B981' : '#EF4444', borderWidth: 3, fill: false, pointRadius: 0 },
+                            { label: 'Выплата', data: payoffData, borderColor: '#ccc', borderDash: [5, 5], borderWidth: 2, fill: false, pointRadius: 0 }
                         ]
                     },
                     delta: {
                         labels: sLabels,
-                        datasets: [{ label: 'Delta', data: deltaData, borderColor: '#3B82F6', borderWidth: 2, fill: false, pointRadius: 0 }]
+                        datasets: [{ label: 'Дельта', data: deltaData, borderColor: '#3B82F6', borderWidth: 2, fill: false, pointRadius: 0 }]
                     },
                     timePrice: {
                         labels: tLabels,
-                        datasets: [{ label: 'Price Decay', data: tPriceData, borderColor: '#8B5CF6', borderWidth: 2, fill: false, pointRadius: 0 }]
+                        datasets: [{ label: 'Распад Цены', data: tPriceData, borderColor: '#8B5CF6', borderWidth: 2, fill: false, pointRadius: 0 }]
                     },
                     timeTheta: {
                         labels: tLabels,
-                        datasets: [{ label: 'Theta Decay', data: tThetaData, borderColor: '#EC4899', borderWidth: 2, fill: false, pointRadius: 0 }]
+                        datasets: [{ label: 'Распад Теты', data: tThetaData, borderColor: '#EC4899', borderWidth: 2, fill: false, pointRadius: 0 }]
                     }
                 };
             }, [params, results]);
@@ -654,17 +654,17 @@
 
                             <div className="bg-white p-4 rounded-xl shadow-md">
                                 <h3 className="font-bold mb-2 text-center">Цена и Выплата vs Цена Актива</h3>
-                                <ChartComponent data={chartsData.spot} options={{ scales: { x: { title: { display: true, text: 'Stock Price (S)' } } } }} />
+                                <ChartComponent data={chartsData.spot} options={{ scales: { x: { title: { display: true, text: 'Цена Актива (S)' } } } }} />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="bg-white p-4 rounded-xl shadow-md">
-                                    <h3 className="font-bold mb-2 text-center">Delta vs S</h3>
-                                    <ChartComponent data={chartsData.delta} options={{ scales: { x: { title: { display: true, text: 'Stock Price (S)' } } } }} />
+                                    <h3 className="font-bold mb-2 text-center">Дельта vs S</h3>
+                                    <ChartComponent data={chartsData.delta} options={{ scales: { x: { title: { display: true, text: 'Цена Актива (S)' } } } }} />
                                 </div>
                                 <div className="bg-white p-4 rounded-xl shadow-md">
-                                    <h3 className="font-bold mb-2 text-center">Time Decay (Price)</h3>
-                                    <ChartComponent data={chartsData.timePrice} options={{ scales: { x: { title: { display: true, text: 'Time Remaining (Years)' } } } }} />
+                                    <h3 className="font-bold mb-2 text-center">Временной Распад (Цена)</h3>
+                                    <ChartComponent data={chartsData.timePrice} options={{ scales: { x: { title: { display: true, text: 'Осталось Времени (лет)' } } } }} />
                                 </div>
                             </div>
                         </div>
