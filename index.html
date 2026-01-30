@@ -9,6 +9,12 @@
     <!-- ERROR HANDLING & DEBUGGING -->
     <script>
         window.onerror = function (msg, url, line, col, error) {
+            // Ignore generic "Script error." (often CORS or extensions)
+            if (msg === 'Script error.' && line === 0) {
+                console.warn("Ignored cross-origin script error:", msg);
+                return false;
+            }
+
             const errorBox = document.getElementById('error-box');
             if (errorBox) {
                 errorBox.style.display = 'block';
@@ -375,10 +381,10 @@
                                     </div>
                                     <div className="border-l-4 border-blue-400 pl-3 py-1">
                                         <div className="text-xs text-gray-400 uppercase font-bold">Пример из жизни</div>
-                                        <p className="text-sm text-gray-700 mt-1">
-                                            Дельта = <strong>0.5</strong>. Акция выросла на <strong>$2</strong>. <br />
-                                            Цена опциона вырастет на: $2 * 0.5 = <strong>$1</strong>.
-                                        </p>
+                                        <div className="text-sm text-gray-700 mt-1">
+                                            <div>Дельта = <strong>0.5</strong>. Акция выросла на <strong>$2</strong>.</div>
+                                            <div className="mt-1">Цена опциона вырастет на: $2 * 0.5 = <strong>$1</strong>.</div>
+                                        </div>
                                     </div>
                                     <div className="text-xs text-gray-500 italic">
                                         💡 ATM опционы (на деньгах) обычно имеют дельту ~0.5.
@@ -423,10 +429,10 @@
                                     </div>
                                     <div className="border-l-4 border-red-400 pl-3 py-1">
                                         <div className="text-xs text-gray-400 uppercase font-bold">Пример</div>
-                                        <p className="text-sm text-gray-700 mt-1">
-                                            Тета = <strong>-0.05</strong>. Цена опциона = $2.00.<br />
-                                            Если цена акции не изменится, завтра опцион будет стоить: $2.00 - 0.05 = <strong>$1.95</strong>.
-                                        </p>
+                                        <div className="text-sm text-gray-700 mt-1">
+                                            <div>Тета = <strong>-0.05</strong>. Цена опциона = $2.00.</div>
+                                            <div className="mt-1">Если цена акции не изменится, завтра опцион будет стоить: $2.00 - 0.05 = <strong>$1.95</strong>.</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -446,10 +452,10 @@
                                     </div>
                                     <div className="border-l-4 border-orange-400 pl-3 py-1">
                                         <div className="text-xs text-gray-400 uppercase font-bold">Пример</div>
-                                        <p className="text-sm text-gray-700 mt-1">
-                                            Вега = <strong>0.10</strong>. Волатильность выросла с 20% до 21%.<br />
-                                            Цена опциона сразу вырастет на <strong>$0.10</strong> (просто на новостях, без движения цены акции!).
-                                        </p>
+                                        <div className="text-sm text-gray-700 mt-1">
+                                            <div>Вега = <strong>0.10</strong>. Волатильность выросла с 20% до 21%.</div>
+                                            <div className="mt-1">Цена опциона сразу вырастет на <strong>$0.10</strong> (просто на новостях, без движения цены акции!).</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
