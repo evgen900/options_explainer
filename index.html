@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black-Scholes Interactive</title>
+
+    <!-- ERROR HANDLING & DEBUGGING -->
+    <script>
+        window.onerror = function (msg, url, line, col, error) {
+            const errorBox = document.getElementById('error-box');
+            if (errorBox) {
+                errorBox.style.display = 'block';
+                errorBox.innerHTML += `<p><strong>Error:</strong> ${msg}<br><small>${url}:${line}:${col}</small></p>`;
+                console.error("Global Error:", msg, error);
+            }
+            return false;
+        };
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        call: '#10B981',
+                        put: '#EF4444',
+                        primary: '#3B82F6',
+                        dark: '#1F2937',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- DEPENDENCIES (CDNJS is often more reliable) -->
+    <!-- React -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"
+        crossorigin></script>
+
+    <!-- Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" crossorigin></script>
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        #error-box {
+            display: none;
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 20px;
+            margin: 20px;
+            border: 2px solid #ef4444;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+
+        .math-block {
+            overflow-x: auto;
+            padding: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Fallback / Error Display -->
+    <div id="error-box">
+        <h3 style="font-weight: bold; margin-bottom: 10px;">Startup Errors Detected:</h3>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="text-center p-10 text-xl font-bold text-gray-500">
+        Загрузка компонентов...<br>
+        <span class="text-sm font-normal">Если страница остается пустой, возможно, заблокированы CDN (скрипты).</span>
+    </div>
+
+    <!-- MAIN APP ROOT -->
+    <div id="root"></div>
+
+    <!-- PRE-FLIGHT CHECK -->
+    <script>
+        // Check if libraries loaded
+        window.onload = function () {
+            let missing = [];
+            if (typeof React === 'undefined') missing.push("React");
+            if (typeof ReactDOM === 'undefined') missing.push("ReactDOM");
+            if (typeof Babel === 'undefined') missing.push("Babel");
+            if (typeof Chart === 'undefined') missing.push("Chart.js");
+
+            if (missing.length > 0) {
+                const err = document.getElementById('error-box');
+                err.style.display = 'block';
+                err.innerHTML += `<p>Не удалось загрузить библиотеки: <strong>${missing.join(', ')}</strong>.<br>Проверьте интернет-соединение или настройки корпоративного прокси.</p>`;
+            }
+        };
+    </script>
+
+    <!-- REACT APPLICATION -->
+    <script type="text/babel">
+        // Remove loading text once script starts
+        const loadingDiv = document.getElementById('loading');
+        if (loadingDiv) loadingDiv.style.display = 'none';
+
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- MATH UTILITIES ---
+        function N(x) {
+            var a1 = 0.254829592;
+            var a2 = -0.284496736;
+            var a3 = 1.421413741;
+            var a4 = -1.453152027;
+            var a5 = 1.061405429;
+            var p = 0.3275911;
+            var sign = 1;
+            if (x < 0) sign = -1;
+            x = Math.abs(x) / Math.sqrt(2.0);
+            var t = 1.0 / (1.0 + p * x);
+            var y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+            return 0.5 * (1.0 + sign * y);
+        }
+
+        function n(x) {
+            return (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+        }
+
+        function calculateBlackScholes(S, K, T, r, sigma, type) {
+            if (T <= 0 || sigma <= 0) {
+                const val = type === 'call' ? Math.max(S - K, 0) : Math.max(K - S, 0);
+                return { price: val, delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0, intrinsic: val, extrinsic: 0 };
+            }
+
+            const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+            const d2 = d1 - sigma * Math.sqrt(T);
+
+            let price, delta, theta, rho;
+            const gamma = n(d1) / (S * sigma * Math.sqrt(T));
+            const vega = S * Math.sqrt(T) * n(d1) / 100;
+
+            if (type === 'call') {
+                price = S * N(d1) - K * Math.exp(-r * T) * N(d2);
+                delta = N(d1);
+                theta = (- (S * n(d1) * sigma) / (2 * Math.sqrt(T)) - r * K * Math.exp(-r * T) * N(d2)) / 365;
+                rho = (K * T * Math.exp(-r * T) * N(d2)) / 100;
+            } else {
+                price = K * Math.exp(-r * T) * N(-d2) - S * N(-d1);
+                delta = N(d1) - 1;
+                theta = (- (S * n(d1) * sigma) / (2 * Math.sqrt(T)) + r * K * Math.exp(-r * T) * N(-d2)) / 365;
+                rho = (- K * T * Math.exp(-r * T) * N(-d2)) / 100;
+            }
+
+            const intrinsic = type === 'call' ? Math.max(0, S - K) : Math.max(0, K - S);
+            const extrinsic = Math.max(0, price - intrinsic);
+
+            return { price, delta, gamma, vega, theta, rho, intrinsic, extrinsic };
+        }
+
+        // --- COMPONENTS ---
+
+        const Hero = () => (
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-12 px-6 shadow-xl">
+                <div className="max-w-4xl mx-auto text-center">
+                    <h1 className="text-4xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                        Black-Scholes Interactive
+                    </h1>
+                    <p className="text-lg text-gray-300">
+                        Лаборатория для визуального изучения опционов.
+                    </p>
+                </div>
+            </div>
+        );
+
+        const ResultBox = ({ label, value, color, prefix = '' }) => (
+            <div className={`p-4 rounded-lg bg-gray-50 border-l-4 ${color} shadow-sm`}>
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</div>
+                <div className="text-2xl font-bold text-gray-800">{prefix}{typeof value === 'number' ? value.toFixed(2) : value}</div>
+            </div>
+        );
+
+        const ControlSlider = ({ label, value, min, max, step, onChange, unit, tooltip }) => (
+            <div className="mb-5">
+                <div className="flex justify-between items-center mb-1">
+                    <label className="text-sm font-semibold text-gray-700">{label}</label>
+                    <span className="text-blue-600 font-mono font-bold">{value} {unit}</span>
+                </div>
+                <input
+                    type="range" min={min} max={max} step={step} value={value}
+                    onChange={(e) => onChange(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer accent-blue-600"
+                />
+            </div>
+        );
+
+        const ChartComponent = ({ data, options }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current || typeof Chart === 'undefined') return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: true }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { grid: { color: '#f3f4f6' } }
+                        },
+                        ...options
+                    }
+                });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data, options]);
+
+            return <div className="h-64 w-full"><canvas ref={canvasRef} /></div>;
+        };
+
+        const OptionLesson = () => (
+            <div className="bg-white py-12 px-4 border-t border-gray-200 mt-12 shadow-inner">
+                <div className="max-w-4xl mx-auto text-gray-800 leading-relaxed space-y-12">
+
+                    {/* INTRO HEADER */}
+                    <div className="text-center mb-12">
+                        <h2 className="text-4xl font-bold mb-4 text-gray-900">📖 Урок: Как работают Опционы?</h2>
+                        <p className="text-xl text-gray-600">
+                            Полное руководство для понимания механики и математики опционов.
+                        </p>
+                    </div>
+
+                    {/* CHAPTER 1: THE CONCEPT */}
+                    <section>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-4 border-l-4 border-blue-500 pl-4">Часть 1. Что такое Опцион?</h3>
+                        <p className="mb-4">
+                            <strong>Опцион</strong> — это договор, который дает вам право (но не обязанность!) купить или продать актив в будущем по заранее известной цене.
+                            Это похоже на задаток или страховку. Вы платите небольшую сумму сейчас ("премию"), чтобы зафиксировать свои возможности в будущем.
+                        </p>
+
+                        <div className="grid md:grid-cols-2 gap-8 mt-6">
+                            <div className="bg-emerald-50 p-6 rounded-lg border border-emerald-200">
+                                <h4 className="font-bold text-lg text-emerald-800 mb-2">CALL (Колл) — Игра на повышение</h4>
+                                <p className="text-sm mb-3">
+                                    Вы покупаете Call, если думаете, что цена актива <strong>вырастет</strong>.
+                                </p>
+                                <p className="text-sm italic text-gray-600 bg-white p-3 rounded border border-emerald-100">
+                                    "Я плачу 100 рублей сейчас за право купить акции Газпрома по 150 рублей через месяц. Даже если они взлетят до 300, мне их продадут за 150."
+                                </p>
+                            </div>
+                            <div className="bg-red-50 p-6 rounded-lg border border-red-200">
+                                <h4 className="font-bold text-lg text-red-800 mb-2">PUT (Пут) — Игра на понижение / Страховка</h4>
+                                <p className="text-sm mb-3">
+                                    Вы покупаете Put, если думаете, что цена <strong>упадет</strong>, или хотите защитить свои активы.
+                                </p>
+                                <p className="text-sm italic text-gray-600 bg-white p-3 rounded border border-red-100">
+                                    "Я плачу 100 рублей сейчас за право продать акции по 150 рублей через месяц. Даже если они упадут до 50, у меня их купят за 150."
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* CHAPTER 2: THE NUMBERS */}
+                    <section>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6 border-l-4 border-purple-500 pl-4">Часть 2. Что означают эти цифры?</h3>
+                        <p className="mb-6">Цена опциона не берется с потолка. Она рассчитывается по формуле Блэка-Шоулза на основе 5 параметров. Давайте разберем каждый:</p>
+
+                        <div className="space-y-6">
+                            <div className="flex gap-4">
+                                <div className="w-16 h-16 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center font-bold text-blue-600 text-xl">S</div>
+                                <div>
+                                    <h4 className="font-bold text-lg">Цена Актива (Spot Price)</h4>
+                                    <p className="text-gray-600">
+                                        Текущая рыночная цена акции/товара прямо сейчас. Это отправная точка.
+                                        Если цена акции (S) растет, Call-опцион дорожает (мы выигрываем), а Put-опцион дешевеет (страховка от падения теряет смысл).
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-16 h-16 flex-shrink-0 bg-purple-100 rounded-full flex items-center justify-center font-bold text-purple-600 text-xl">K</div>
+                                <div>
+                                    <h4 className="font-bold text-lg">Страйк (Strike Price)</h4>
+                                    <p className="text-gray-600">
+                                        Цена исполнения. Та цена, о которой вы договорились. Она фиксирована и не меняется.
+                                        <br />Для Call: чем ниже Strike, тем дороже опцион (круто иметь право купить дешево!).
+                                        <br />Для Put: чем выше Strike, тем дороже опцион (круто иметь право продать дорого!).
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-16 h-16 flex-shrink-0 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-600 text-xl">T</div>
+                                <div>
+                                    <h4 className="font-bold text-lg">Время (Time to Maturity)</h4>
+                                    <p className="text-gray-600">
+                                        Время до окончания срока опциона (экспирации). Измеряется в годах.
+                                        Чем больше времени, тем дороже опцион. Почему? Потому что за длинный срок может произойти что угодно, и шанс того, что цена сильно изменится в вашу пользу, выше.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-16 h-16 flex-shrink-0 bg-red-100 rounded-full flex items-center justify-center font-bold text-red-600 text-xl">σ</div>
+                                <div>
+                                    <h4 className="font-bold text-lg">Волатильность (Volatility)</h4>
+                                    <p className="text-gray-600">
+                                        Самый важный параметр для трейдера. Показывает, насколько сильно и резко меняется цена актива.
+                                        Опционы любят нестабильность. Высокая волатильность = высокие риски и высокие шансы на сверхприбыль. Поэтому рост волатильности всегда увеличивает цену опциона.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-600 text-xl">r</div>
+                                <div>
+                                    <h4 className="font-bold text-lg">Безрисковая ставка (Rate)</h4>
+                                    <p className="text-gray-600">
+                                        Стоимость денег (обычно ставка ЦБ). Она влияет на "стоимость времени".
+                                        Высокая ставка делает Call опционы немного дороже (выгодно отложить покупку акций, а деньги подержать под процент), а Put опционы — дешевле.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* CHAPTER 3: THE GREEKS */}
+                    <section>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6 border-l-4 border-yellow-500 pl-4">Часть 3. Греки: Панель управления рисками</h3>
+                        <p className="mb-6">Профессионалы не смотрят просто на цену. Они смотрят на "Греков" — показатели, которые говорят, ПОЧЕМУ меняется цена.</p>
+
+                        <div className="overflow-hidden border border-gray-200 rounded-xl">
+                            <table className="min-w-full text-left bg-white">
+                                <thead className="bg-gray-50 uppercase text-gray-500 text-xs font-bold">
+                                    <tr>
+                                        <th className="px-6 py-3">Грек</th>
+                                        <th className="px-6 py-3">Вопрос, на который он отвечает</th>
+                                        <th className="px-6 py-3 hidden md:table-cell">Пример</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 text-sm">
+                                    <tr>
+                                        <td className="px-6 py-4 font-bold text-blue-600">Delta (Δ)</td>
+                                        <td className="px-6 py-4">На сколько изменится цена опциона, если акция вырастет на $1?</td>
+                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Дельта 0.5 значит: Акция +$1 &rarr; Опцион +$0.5</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 font-bold text-purple-600">Gamma (Γ)</td>
+                                        <td className="px-6 py-4">Насколько стабильна сама Дельта? (Скорость изменения Дельты)</td>
+                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Показывает риски резких скачков.</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 font-bold text-orange-600">Vega (ν)</td>
+                                        <td className="px-6 py-4">Как изменится цена, если Волатильность вырастет на 1%?</td>
+                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Вега высокая? Опцион сильно подорожает при панике на рынке.</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 font-bold text-red-600">Theta (Θ)</td>
+                                        <td className="px-6 py-4">Сколько денег я потеряю просто за то, что прошел 1 день?</td>
+                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Опционы "тухнут" со временем. Тета всегда отрицательна для покупателя.</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 font-bold text-gray-600">Rho (ρ)</td>
+                                        <td className="px-6 py-4">Как влияет изменение процентной ставки ЦБ?</td>
+                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Менее значим для краткосрочных опционов.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        );
+
+        const MainApp = () => {
+            const [params, setParams] = useState({
+                S: 100, K: 100, T: 1, r: 5, sigma: 20, type: 'call'
+            });
+
+            // Trigger MathJax typeset safely
+            useEffect(() => {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise();
+                }
+            }, []);
+
+            const results = useMemo(() => {
+                return calculateBlackScholes(params.S, params.K, params.T, params.r / 100, params.sigma / 100, params.type);
+            }, [params]);
+
+            const chartsData = useMemo(() => {
+                const rangePercent = 0.5;
+                const steps = 50;
+
+                // Spot Arrays
+                const minS = params.S * (1 - rangePercent);
+                const maxS = params.S * (1 + rangePercent);
+                const stepS = (maxS - minS) / steps;
+
+                const sLabels = [];
+                const priceData = [];
+                const payoffData = [];
+                const deltaData = [];
+
+                for (let i = 0; i <= steps; i++) {
+                    const currentS = minS + i * stepS;
+                    sLabels.push(currentS.toFixed(1));
+                    const res = calculateBlackScholes(currentS, params.K, params.T, params.r / 100, params.sigma / 100, params.type);
+                    priceData.push(res.price);
+                    deltaData.push(res.delta);
+                    const intrinsic = params.type === 'call' ? Math.max(0, currentS - params.K) : Math.max(0, params.K - currentS);
+                    payoffData.push(intrinsic);
+                }
+
+                // Time Arrays
+                const tLabels = [];
+                const tPriceData = [];
+                const tThetaData = [];
+                for (let i = 0; i <= steps; i++) {
+                    // Time Passed (X axis)
+                    const timePassed = params.T * (i / steps);
+                    // Remaining Time decreasing
+                    const remainingT = Math.max(0.001, params.T - timePassed);
+
+                    tLabels.push(remainingT.toFixed(2));
+                    const res = calculateBlackScholes(params.S, params.K, remainingT, params.r / 100, params.sigma / 100, params.type);
+                    tPriceData.push(res.price);
+                    tThetaData.push(res.theta);
+                }
+
+                return {
+                    spot: {
+                        labels: sLabels,
+                        datasets: [
+                            { label: 'Price', data: priceData, borderColor: params.type === 'call' ? '#10B981' : '#EF4444', borderWidth: 3, fill: false, pointRadius: 0 },
+                            { label: 'Payoff', data: payoffData, borderColor: '#ccc', borderDash: [5, 5], borderWidth: 2, fill: false, pointRadius: 0 }
+                        ]
+                    },
+                    delta: {
+                        labels: sLabels,
+                        datasets: [{ label: 'Delta', data: deltaData, borderColor: '#3B82F6', borderWidth: 2, fill: false, pointRadius: 0 }]
+                    },
+                    timePrice: {
+                        labels: tLabels,
+                        datasets: [{ label: 'Price Decay', data: tPriceData, borderColor: '#8B5CF6', borderWidth: 2, fill: false, pointRadius: 0 }]
+                    },
+                    timeTheta: {
+                        labels: tLabels,
+                        datasets: [{ label: 'Theta Decay', data: tThetaData, borderColor: '#EC4899', borderWidth: 2, fill: false, pointRadius: 0 }]
+                    }
+                };
+            }, [params, results]);
+
+            return (
+                <div className="min-h-screen">
+                    <Hero />
+
+                    <div className="bg-white py-8 border-b shadow-sm">
+                        <div className="max-w-6xl mx-auto px-4 text-center">
+                            <h2 className="text-gray-500 font-bold tracking-widest uppercase text-xs mb-4">Формула Black-Scholes</h2>
+
+                            <div className="overflow-x-auto">
+                                <p className="text-2xl font-serif text-gray-800 mb-6">
+                                    $$ {params.type === 'call' ? 'C' : 'P'} = {params.type === 'call' ? 'S N(d_1) - K e^{-rT} N(d_2)' : 'K e^{-rT} N(-d_2) - S N(-d_1)'} $$
+                                </p>
+
+                                <div className="flex flex-col md:flex-row justify-center items-center gap-8 text-lg text-gray-600 border-t pt-6 mt-2">
+                                    <p>{String.raw`$$ d_1 = \frac{\ln(S/K) + (r + \frac{\sigma^2}{2})T}{\sigma\sqrt{T}} $$`}</p>
+                                    <p>{String.raw`$$ d_2 = d_1 - \sigma\sqrt{T} $$`}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-center mt-8">
+                                <div className="bg-gray-100 rounded-lg p-1 flex">
+                                    <button onClick={() => setParams({ ...params, type: 'call' })} className={`px-6 py-2 rounded-md font-bold transition-all ${params.type === 'call' ? 'bg-white shadow text-green-600' : 'text-gray-500 hover:text-gray-900'}`}>CALL</button>
+                                    <button onClick={() => setParams({ ...params, type: 'put' })} className={`px-6 py-2 rounded-md font-bold transition-all ${params.type === 'put' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-900'}`}>PUT</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+                        {/* CONTROLS */}
+                        <div className="lg:col-span-4 space-y-6">
+                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                                <h2 className="text-xl font-bold mb-4">Параметры</h2>
+                                <ControlSlider label="Цена Актива (S)" value={params.S} min={10} max={300} step={1} unit="$" onChange={v => setParams({ ...params, S: v })} />
+                                <ControlSlider label="Strike Цена (K)" value={params.K} min={10} max={300} step={1} unit="$" onChange={v => setParams({ ...params, K: v })} />
+                                <ControlSlider label="Время (T, лет)" value={params.T} min={0.01} max={5} step={0.01} unit="г" onChange={v => setParams({ ...params, T: v })} />
+                                <ControlSlider label="Волатильность (σ)" value={params.sigma} min={1} max={200} step={1} unit="%" onChange={v => setParams({ ...params, sigma: v })} />
+                                <ControlSlider label="Ставка (r)" value={params.r} min={0} max={20} step={0.1} unit="%" onChange={v => setParams({ ...params, r: v })} />
+                            </div>
+
+                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                                <h3 className="font-bold text-gray-700 mb-2">Greeks (Чувствительность)</h3>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div className="text-gray-500">Delta (Δ)</div>
+                                        <div className="font-mono font-bold text-lg">{results.delta.toFixed(4)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500">Gamma (Γ)</div>
+                                        <div className="font-mono font-bold text-lg">{results.gamma.toFixed(4)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500">Vega (ν)</div>
+                                        <div className="font-mono font-bold text-lg">{results.vega.toFixed(4)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500">Theta (Θ)</div>
+                                        <div className="font-mono font-bold text-lg text-red-500">{results.theta.toFixed(4)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RESULTS */}
+                        <div className="lg:col-span-8 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className={`p-6 rounded-xl shadow-md text-white ${params.type === 'call' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                    <div className="text-white/80 text-sm font-bold uppercase">Цена Опциона</div>
+                                    <div className="text-4xl font-extrabold">${results.price.toFixed(2)}</div>
+                                </div>
+                                <ResultBox label="Intrinsic (Внутренняя)" value={results.intrinsic} color="border-blue-500" prefix="$" />
+                                <ResultBox label="Extrinsic (Временная)" value={results.extrinsic} color="border-purple-500" prefix="$" />
+                            </div>
+
+                            <div className="bg-white p-4 rounded-xl shadow-md">
+                                <h3 className="font-bold mb-2 text-center">Цена и Выплата vs Цена Актива</h3>
+                                <ChartComponent data={chartsData.spot} options={{ scales: { x: { title: { display: true, text: 'Stock Price (S)' } } } }} />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-white p-4 rounded-xl shadow-md">
+                                    <h3 className="font-bold mb-2 text-center">Delta vs S</h3>
+                                    <ChartComponent data={chartsData.delta} options={{ scales: { x: { title: { display: true, text: 'Stock Price (S)' } } } }} />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl shadow-md">
+                                    <h3 className="font-bold mb-2 text-center">Time Decay (Price)</h3>
+                                    <ChartComponent data={chartsData.timePrice} options={{ scales: { x: { title: { display: true, text: 'Time Remaining (Years)' } } } }} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <OptionLesson />
+
+                    <footer className="bg-gray-800 text-gray-400 py-8 text-center mt-0">
+                        <p>© 2024 Black-Scholes Interactive Model. One-Page Educational Tool.</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MainApp />);
+    </script>
+</body>
+
+</html>
