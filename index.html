@@ -189,10 +189,13 @@
             </div>
         );
 
-        const ResultBox = ({ label, value, color, prefix = '' }) => (
-            <div className={`p-4 rounded-lg bg-gray-50 border-l-4 ${color} shadow-sm`}>
-                <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</div>
-                <div className="text-2xl font-bold text-gray-800">{prefix}{typeof value === 'number' ? value.toFixed(2) : value}</div>
+        const ResultBox = ({ label, value, color, prefix = '', hint }) => (
+            <div className={`p-4 rounded-lg bg-gray-50 border-l-4 ${color} shadow-sm group relative`}>
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-1 flex justify-between">
+                    {label}
+                </div>
+                <div className="text-2xl font-bold text-gray-800 mb-1">{prefix}{typeof value === 'number' ? value.toFixed(2) : value}</div>
+                {hint && <div className="text-xs text-gray-400 font-mono">{hint}</div>}
             </div>
         );
 
@@ -353,43 +356,103 @@
                         <h3 className="text-2xl font-bold text-gray-900 mb-6 border-l-4 border-yellow-500 pl-4">Часть 3. Греки: Панель управления рисками</h3>
                         <p className="mb-6">Профессионалы не смотрят просто на цену. Они смотрят на "Греков" — показатели, которые говорят, ПОЧЕМУ меняется цена.</p>
 
-                        <div className="overflow-hidden border border-gray-200 rounded-xl">
-                            <table className="min-w-full text-left bg-white">
-                                <thead className="bg-gray-50 uppercase text-gray-500 text-xs font-bold">
-                                    <tr>
-                                        <th className="px-6 py-3">Грек</th>
-                                        <th className="px-6 py-3">Вопрос, на который он отвечает</th>
-                                        <th className="px-6 py-3 hidden md:table-cell">Пример</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 text-sm">
-                                    <tr>
-                                        <td className="px-6 py-4 font-bold text-blue-600">Delta (Δ)</td>
-                                        <td className="px-6 py-4">На сколько изменится цена опциона, если акция вырастет на $1?</td>
-                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Дельта 0.5 значит: Акция +$1 &rarr; Опцион +$0.5</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 font-bold text-purple-600">Gamma (Γ)</td>
-                                        <td className="px-6 py-4">Насколько стабильна сама Дельта? (Скорость изменения Дельты)</td>
-                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Показывает риски резких скачков.</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 font-bold text-orange-600">Vega (ν)</td>
-                                        <td className="px-6 py-4">Как изменится цена, если Волатильность вырастет на 1%?</td>
-                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Вега высокая? Опцион сильно подорожает при панике на рынке.</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 font-bold text-red-600">Theta (Θ)</td>
-                                        <td className="px-6 py-4">Сколько денег я потеряю просто за то, что прошел 1 день?</td>
-                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Опционы "тухнут" со временем. Тета всегда отрицательна для покупателя.</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 font-bold text-gray-600">Rho (ρ)</td>
-                                        <td className="px-6 py-4">Как влияет изменение процентной ставки ЦБ?</td>
-                                        <td className="px-6 py-4 text-gray-500 hidden md:table-cell">Менее значим для краткосрочных опционов.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {/* DELTA */}
+                            <div className="bg-white p-6 rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <span className="bg-blue-100 text-blue-700 p-2 rounded-lg font-bold text-xl">Δ</span>
+                                    <h4 className="text-xl font-bold text-gray-800">Delta (Дельта)</h4>
+                                </div>
+                                <p className="text-gray-600 mb-4 text-sm">Скорость изменения цены. Показывает, насколько изменится опцион, если акция вырастет на $1.</p>
+
+                                <div className="space-y-3">
+                                    <div className="bg-blue-50 p-3 rounded text-sm">
+                                        <div className="font-semibold text-blue-800 mb-1">Диапазон значений:</div>
+                                        <ul className="list-disc list-inside text-gray-700">
+                                            <li><strong>Call:</strong> от 0 до 1 (0% до 100%)</li>
+                                            <li><strong>Put:</strong> от -1 до 0 (-100% до 0%)</li>
+                                        </ul>
+                                    </div>
+                                    <div className="border-l-4 border-blue-400 pl-3 py-1">
+                                        <div className="text-xs text-gray-400 uppercase font-bold">Пример из жизни</div>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                            Дельта = <strong>0.5</strong>. Акция выросла на <strong>$2</strong>. <br />
+                                            Цена опциона вырастет на: $2 * 0.5 = <strong>$1</strong>.
+                                        </p>
+                                    </div>
+                                    <div className="text-xs text-gray-500 italic">
+                                        💡 ATM опционы (на деньгах) обычно имеют дельту ~0.5.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* GAMMA */}
+                            <div className="bg-white p-6 rounded-xl border border-purple-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <span className="bg-purple-100 text-purple-700 p-2 rounded-lg font-bold text-xl">Γ</span>
+                                    <h4 className="text-xl font-bold text-gray-800">Gamma (Гамма)</h4>
+                                </div>
+                                <p className="text-gray-600 mb-4 text-sm">Ускорение Дельты. Показывает, как быстро меняется сама Дельта при движении цены.</p>
+
+                                <div className="space-y-3">
+                                    <div className="bg-purple-50 p-3 rounded text-sm">
+                                        <div className="font-semibold text-purple-800 mb-1">Что нужно знать:</div>
+                                        <p className="text-gray-700">Гамма максимальна у ATM опционов (когда цена = страйк) и перед экспирацией.</p>
+                                    </div>
+                                    <div className="border-l-4 border-purple-400 pl-3 py-1">
+                                        <div className="text-xs text-gray-400 uppercase font-bold">Опасность</div>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                            Высокая Гамма = Риск. Дельта может резко превратиться из 0.5 в 1.0 (или 0), и ваша позиция станет неуправляемой.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* THETA */}
+                            <div className="bg-white p-6 rounded-xl border border-red-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <span className="bg-red-100 text-red-700 p-2 rounded-lg font-bold text-xl">Θ</span>
+                                    <h4 className="text-xl font-bold text-gray-800">Theta (Тета)</h4>
+                                </div>
+                                <p className="text-gray-600 mb-4 text-sm">Временной распад. Показывает, сколько стоимости теряет опцион <strong>каждый день</strong>.</p>
+
+                                <div className="space-y-3">
+                                    <div className="bg-red-50 p-3 rounded text-sm">
+                                        <div className="font-semibold text-red-800 mb-1">Правило:</div>
+                                        <p className="text-gray-700">Тета всегда отрицательна для покупателя опционов. Время работает против вас.</p>
+                                    </div>
+                                    <div className="border-l-4 border-red-400 pl-3 py-1">
+                                        <div className="text-xs text-gray-400 uppercase font-bold">Пример</div>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                            Тета = <strong>-0.05</strong>. Цена опциона = $2.00.<br />
+                                            Если цена акции не изменится, завтра опцион будет стоить: $2.00 - 0.05 = <strong>$1.95</strong>.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* VEGA */}
+                            <div className="bg-white p-6 rounded-xl border border-orange-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <span className="bg-orange-100 text-orange-700 p-2 rounded-lg font-bold text-xl">ν</span>
+                                    <h4 className="text-xl font-bold text-gray-800">Vega (Вега)</h4>
+                                </div>
+                                <p className="text-gray-600 mb-4 text-sm">Чувствительность к волатильности паники. Как изменится цена при росте IV на 1%.</p>
+
+                                <div className="space-y-3">
+                                    <div className="bg-orange-50 p-3 rounded text-sm">
+                                        <div className="font-semibold text-orange-800 mb-1">Инсайт:</div>
+                                        <p className="text-gray-700">Вега выше всего у "длинных" опционов (большое время T). Краткосрочные опционы почти не реагируют на Вегу.</p>
+                                    </div>
+                                    <div className="border-l-4 border-orange-400 pl-3 py-1">
+                                        <div className="text-xs text-gray-400 uppercase font-bold">Пример</div>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                            Вега = <strong>0.10</strong>. Волатильность выросла с 20% до 21%.<br />
+                                            Цена опциона сразу вырастет на <strong>$0.10</strong> (просто на новостях, без движения цены акции!).
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
@@ -493,6 +556,9 @@
                                     <p>{String.raw`$$ d_1 = \frac{\ln(S/K) + (r + \frac{\sigma^2}{2})T}{\sigma\sqrt{T}} $$`}</p>
                                     <p>{String.raw`$$ d_2 = d_1 - \sigma\sqrt{T} $$`}</p>
                                 </div>
+                                <div className="text-center mt-4">
+                                    <p className="text-gray-600 text-lg">{String.raw`$$ N(x) = \frac{1}{\sqrt{2\pi}} \int_{-\infty}^{x} e^{-\frac{t^2}{2}} dt $$`}</p>
+                                </div>
                             </div>
 
                             <div className="flex justify-center mt-8">
@@ -546,9 +612,22 @@
                                 <div className={`p-6 rounded-xl shadow-md text-white ${params.type === 'call' ? 'bg-green-500' : 'bg-red-500'}`}>
                                     <div className="text-white/80 text-sm font-bold uppercase">Цена Опциона</div>
                                     <div className="text-4xl font-extrabold">${results.price.toFixed(2)}</div>
+                                    <div className="text-xs text-white/60 mt-2 font-mono">Intrinsic + Extrinsic</div>
                                 </div>
-                                <ResultBox label="Intrinsic (Внутренняя)" value={results.intrinsic} color="border-blue-500" prefix="$" />
-                                <ResultBox label="Extrinsic (Временная)" value={results.extrinsic} color="border-purple-500" prefix="$" />
+                                <ResultBox
+                                    label="Intrinsic (Внутренняя)"
+                                    value={results.intrinsic}
+                                    color="border-blue-500"
+                                    prefix="$"
+                                    hint={params.type === 'call' ? 'Max(0, S - K)' : 'Max(0, K - S)'}
+                                />
+                                <ResultBox
+                                    label="Extrinsic (Временная)"
+                                    value={results.extrinsic}
+                                    color="border-purple-500"
+                                    prefix="$"
+                                    hint="Price - Intrinsic"
+                                />
                             </div>
 
                             <div className="bg-white p-4 rounded-xl shadow-md">
